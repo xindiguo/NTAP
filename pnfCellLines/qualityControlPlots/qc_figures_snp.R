@@ -5,12 +5,8 @@ library(ggplot2)
 library(synapseClient)
 source("../dataAccess/CNVData.R")
 
-# Get a table of files using updated annotations
-snpfiles <- synapseQuery('SELECT id,sampleIdentifier,nf1Genotype FROM entity where parentId=="syn4988794"')
-snpfiles <- snpfiles[which(snpfiles$entity.sampleIdentifier != "Not Applicable"),]
-
 # Get the sample data
-all.cnv <- tier0_rawData(annot=annotes.snp)
+all.cnv <- tier0_rawData()
 
 lrr <- do.call("cbind", lapply(all.cnv, function(x) x$"Log R Ratio"))
 baf <- do.call("cbind", lapply(all.cnv, function(x) x$"B Allele Freq"))
@@ -23,17 +19,16 @@ for(i in names(all.cnv)){
 }
 df<-data.frame(list.of.lists)
 
-names(snpfiles) <- c("nf1Genotype","sampleIdentifier","synapseId")
 df$nf1Genotype <- snpfiles$nf1Genotype[match(df$sampleIdentifier, snpfiles$sampleIdentifier)]
 
 # Plots
 pl=ggplot(df,aes(y=Log.R.Ratio,x=sampleIdentifier))+geom_violin(aes(colour=nf1Genotype)) + coord_flip()
-pdf('rotated_violinLrrPlot.pdf')
+pdf(paste0('rotated_violinLrrPlot_',Sys.Date(),'.pdf'))
 print(pl)
 dev.off()
 
 pb=ggplot(df,aes(y=B.Allele.Freq,x=sampleIdentifier))+geom_violin(aes(colour=nf1Genotype))+coord_flip()
-pdf('rotated_violinBafPlot.pdf')
+pdf(paste0('rotated_violinBafPlot_',Sys.Date(),'.pdf'))
 print(pb)
 dev.off()
 
@@ -41,7 +36,8 @@ dev.off()
 snpqc='syn8498849'
 scripturl='https://raw.githubusercontent.com/Sage-Bionetworks/NTAP/master/pnfCellLines/qualityControlPlots/qc_figures_snp.R'
 
-for(file in c('rotated_violinBafPlot.pdf','rotated_violinLrrPlot.pdf')){
+files <- list.files(pattern="rotated_violin.+\\.pdf")
+for(file in files){
   synStore(File(file,parentId=snpqc),used=list(list(entity="syn4988794",wasExecuted=FALSE),
-  	list(url=scripturl,wasExecuted=TRUE)))
+  list(url=scripturl,wasExecuted=TRUE)))
 }
