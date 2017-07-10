@@ -12,23 +12,23 @@ synapseLogin()
 
 ##download all meta data from original files
 if(!exists('snpfiles'))
-    snpfiles<-synapseQuery('SELECT id,sampleName,sampleGenotype,sampleID,sampleOrigin FROM entity where parentId=="syn4988794"')
-
-snpfiles=snpfiles[which(!is.na(snpfiles$entity.sampleID)),]
+    snpfiles <- synTableQuery('SELECT "SNP Array Data", "Sample Name", "Sample Genotype", "Sample ID", "Sample Origin" FROM syn8397154 where "SNP Array Data" is not null')@values
+    colnames(snpfiles) <- c("synapseId","sampleIdentifier","nf1Genotype","CIDrID","sampleOrigin")
+    # Renmove duplicates
+    snpfiles <- snpfiles[!(snpfiles$CIDrID == "W12" | snpfiles$CIDrID =="W3"),]
 
 #now get annotations
-origin<-snpfiles$'entity.sampleOrigin'
-names(origin)<-snpfiles$entity.sampleID
+origin <- snpfiles$sampleOrigin
+names(origin) <- snpfiles$CIDrID
+    
+clnames <- paste(snpfiles$sampleIdentifier,snpfiles$nf1Genotype)
+names(clnames) <- snpfiles$CIDrID
 
-clnames<-paste(snpfiles$'entity.sampleName',snpfiles$'entity.sampleGenotype')
-names(clnames)<-snpfiles$entity.sampleID
-
-genotype<-snpfiles$'entity.sampleGenotype'
+genotype<-snpfiles$nf1Genotype
 names(genotype)<-clnames
 
 cnv_annotation_data<-function(){
     annots=snpfiles
-    colnames(annots)<-c('Origin','sample','Genotype','synapseID','Name')
     return(annots)
 }
 
@@ -44,24 +44,24 @@ snp_annotation_data<-function(){
 #first function is to get 'raw' data from SNP OMNI arrays under syn4988794
 #and return as single data frame
 tier0_rawData<-function(annot=NA){
-                                        #first login to synapse
+    #first login to synapse
     synapseLogin()
 
     if(is.na(annot))
         annot=snp_annotation_data()
 
     print('Now retreiving original CNV data from NTAP CLP OMNI arrays...')
-                                        #collect sample files and process them into data frame
-    sample.data<-lapply(snpfiles$entity.id,function(synid){
+    #collect sample files and process them into data frame
+    sample.data<-lapply(snpfiles$synapseId,function(synid){
         fname=synGet(synid)
-        print(paste("Getting sample",snpfiles$entity.sampleID[match(synid,snpfiles$entity.id)]))
+        print(paste("Getting sample",snpfiles$CIDrID[match(synid,snpfiles$synapseId)]))
         data <- as.data.frame(fread(fname@filePath,sep=",",header=T))
         ad<-data[match(annot$Name,data$'SNP Name'),]
         return(ad)
     })
 
-                                        #update sample names
-    names(sample.data) <- snpfiles$entity.sampleID
+    #update sample names
+    names(sample.data) <- snpfiles$CIDrID
 
     return(sample.data)
 }
@@ -81,11 +81,12 @@ tier1_segmentedData<-function(filterBySD=TRUE){
 
 
 
-dataSummaryPlots<-function(annot=NA){
+dataSummaryPlots<-function(annot=NA,sample.data=NA){
 
     if(is.na(annot))
-        annot<-snp_annotation_data
-
+        annot<-snp_annotation_data()
+    if(is.na(sample.data))
+        sample.data <- tier0_rawData(annot=annot)
 
     ##get regions that are within our general region: chr17:29000019 to 30427403
     chr17.snps=annot[grep('chr17',annot$chrpos),]
@@ -119,7 +120,7 @@ dataSummaryPlots<-function(annot=NA){
         if(i=='CIDR'){
             st<-rep('Control',nrow(lrr))
 
-        }else if (i%in%c('W1','W2','W3','W4','W5')){
+        }else if (i%in%c('W1','W2','W4','W5','WD1','WD2','WD3','WD4')){
             st<-rep('Primary',nrow(lrr))
 
         }else{
@@ -137,7 +138,7 @@ dataSummaryPlots<-function(annot=NA){
     rm(list.of.lists)
 
                                         #now do the plotting
-    pdf('ntap_cnv_plots.pdf')
+    pdf(paste0('ntap_cnv_plots_',Sys.Date(),'.pdf'))
 
     m<-ggplot(df,aes(x=LogRRatio,colour=SampleType,linetype=NF1Region))
     m<-m + geom_density() + xlim(-2.5,2)
@@ -156,7 +157,7 @@ dataSummaryPlots<-function(annot=NA){
     ##now get the region around chr17 to get region of interest, then re-plot b-allele frequency and logR
     nf1.df<-subset(df,Chromosome=='17')
     nf1.df<-subset(nf1.df,Position>28000000&Position<31000000)
-    pdf('ntap_cnv_chr17_values.pdf')
+    pdf(paste0('ntap_cnv_chr17_values_',Sys.Date(),'.pdf'))
     m<-ggplot(nf1.df)
     m<-m +geom_point(aes(x=Position,y=BAlleleFreq,colour=Origin,shape=SampleType))
     print(m)
