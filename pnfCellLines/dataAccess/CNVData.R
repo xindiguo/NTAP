@@ -138,7 +138,7 @@ dataSummaryPlots<-function(annot=NA,sample.data=NA){
     rm(list.of.lists)
 
                                         #now do the plotting
-    pdf(paste0('ntap_cnv_plots_',Sys.Date(),'.pdf'))
+    pdf('ntap_cnv_plots.pdf')
 
     m<-ggplot(df,aes(x=LogRRatio,colour=SampleType,linetype=NF1Region))
     m<-m + geom_density() + xlim(-2.5,2)
@@ -157,7 +157,7 @@ dataSummaryPlots<-function(annot=NA,sample.data=NA){
     ##now get the region around chr17 to get region of interest, then re-plot b-allele frequency and logR
     nf1.df<-subset(df,Chromosome=='17')
     nf1.df<-subset(nf1.df,Position>28000000&Position<31000000)
-    pdf(paste0('ntap_cnv_chr17_values_',Sys.Date(),'.pdf'))
+    pdf('ntap_cnv_chr17_values.pdf')
     m<-ggplot(nf1.df)
     m<-m +geom_point(aes(x=Position,y=BAlleleFreq,colour=Origin,shape=SampleType))
     print(m)

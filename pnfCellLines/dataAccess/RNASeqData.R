@@ -8,43 +8,40 @@
 
 rna.dir<-'syn5562003'
 grch38.dir<-'syn5579783'
-gencode.dir='syn5579785'
+gencode.dir<-'syn5579785'
 require(synapseClient)
 require(data.table)
 synapseLogin()
 
-samp.mappings<-synTableQuery('SELECT "Sample Name","RNA-Seq Data","RNA-Seq Data (Gencode)", "Sample Genotype" FROM syn5014742')@values
-
+rnaSeqFiles<-synTableQuery('SELECT "Sample Name","Sample ID", "RNASeq Data","RNASeq Data Gencode", "Sample Genotype" FROM syn8397154')@values
+rnaSeqFiles <- rnaSeqFiles[complete.cases(rnaSeqFiles),]
+colnames(rnaSeqFiles) <- c("sampleIdentifier","CIDrID","rnaSeq","rnaSeq_gencode","nf1Genotype")
+rnaSeqFiles <- rnaSeqFiles[!(rnaSeqFiles$CIDrID == "W12" | rnaSeqFiles$CIDrID =="W3"),] # remove old files
 
 rnaKallistoFiles<-function(){
-  rfiles<-synapseQuery(paste('select * from entity where parentId=="',grch38.dir,'"',sep=''))
-  rfiles<-rfiles[which(!is.na(rfiles$entity.sampleName)),]
-  all.files<-lapply(rfiles$entity.id,function(x)
+  all.files<-lapply(rnaSeqFiles$rnaSeq,function(x)
     as.data.frame(fread(synGet(x)@filePath))
   )
-  names(all.files)<-rfiles$entity.id
+  names(all.files)<-rnaSeqFiles$rnaSeq
   return(all.files)
 }
 
 rnaGencodeKallistoFiles<-function(){
-  rfiles<-synapseQuery(paste('select * from entity where parentId=="',gencode.dir,'"',sep=''))
-  rfiles<-rfiles[which(!is.na(rfiles$entity.sampleName)),]
-  all.files<-lapply(rfiles$entity.id,function(x)
+  all.files<-lapply(rnaSeqFiles$rnaSeq_gencode,function(x)
     as.data.frame(fread(synGet(x)@filePath))
   )
-  names(all.files)<-rfiles$entity.id
+  names(all.files)<-rnaSeqFiles$rnaSeq_gencode
   return(all.files)
 }
 
 rnaAnnotations<-function(gencode=TRUE){
   if(gencode)
-    dirname=gencode.dir
+    synIds=rnaSeqFiles$rnaSeq_gencode
   else
-    dirname=grch38.dir
-  rfiles<-synapseQuery(paste('select id,sampleName from entity where parentId=="',dirname,'"',sep=''))
-  rfiles<-rfiles[which(!is.na(rfiles$entity.sampleName)),]
-  samps<-rfiles$entity.sampleName
-  names(samps)<-rfiles$entity.id
+    synIds=rnaSeqFiles$rnaSeq
+  
+  samps<-rnaSeqFiles$sampleIdentifier
+  names(samps)<-synIds
   return(samps)
 }
 
@@ -76,10 +73,9 @@ rnaKallistoMatrix<-function(buildFromFiles=FALSE,metric='tpm',useCellNames=FALSE
 
     }
   if(useCellNames){
-    annotes=synTableQuery('SELECT "Sample Name","RNA-Seq Data" FROM syn5014742 where "RNA-Seq Data" is not null')
-  colnames(tab)<-annotes$`Sample Name`[match(colnames(tab),annotes$`RNA-Seq Data`)]
-
- }
+    annotes=rnaSeqFiles[c("sampleIdentifier", "rnaSeq")]
+    colnames(tab)<-annotes$sampleIdentifier[match(colnames(tab),annotes$rnaSeq)]
+  }
   if(byGene){
       if(metric=='est_counts')
           print("Estimated counts should not be collapsed by gene, please use 'tpm' as metric")
@@ -119,10 +115,10 @@ rnaGencodeKallistoMatrix<-function(buildFromFiles=FALSE,metric='tpm',useCellName
 
     }
   if(useCellNames){
-    annotes=synTableQuery('SELECT "Sample Name","RNA-Seq Data (Gencode)" FROM syn5014742 where "RNA-Seq Data (Gencode)" is not null')@values
-    colnames(tab)<-annotes$`Sample Name`[match(colnames(tab),annotes$`RNA-Seq Data (Gencode)`)]
+    annotes=rnaSeqFiles[c("sampleIdentifier", "rnaSeq_gencode")]
+    colnames(tab)<-annotes$sampleIdentifier[match(colnames(tab),annotes$rnaSeq_gencode)]
     
-}
+  }
 
     if(byGene){
       if(metric=='est_counts')
@@ -140,19 +136,20 @@ rnaGencodeKallistoMatrix<-function(buildFromFiles=FALSE,metric='tpm',useCellName
 
 
 getSampleNames<-function(rseqfiles){
-    samp.names=samp.mappings$`Sample Name`[match(rseqfiles,samp.mappings$`RNA-Seq Data`)]
+    samp.names=rnaSeqFiles$sampleIdentifier[match(rseqfiles,rnaSeqFiless$rnaSeq)]
     if(all(is.na(samp.names)))
-        samp.names=samp.mappings$`Sample Name`[match(rseqfiles,samp.mappings$`RNA-Seq Data (Gencode)`)]
+        samp.names=rnaSeqFiles$sampleIdentifier[match(rseqfiles,rnaSeqFiles$rnaSeq_gencode)]
     return(samp.names)
 }
 
 getSampleGenotype<-function(rseqfiles){
-    samp.gen=samp.mappings$`Sample Genotype`[match(rseqfiles,samp.mappings$`RNA-Seq Data`)]
+    samp.gen=rnaSeqFiles$nf1Genotype[match(rseqfiles,rnaSeqFiless$rnaSeq)]
     if(all(is.na(samp.gen)))
-        samp.gen=samp.mappings$`Sample Genotype`[match(rseqfiles,samp.mappings$`RNA-Seq Data (Gencode)`)]
+        samp.gen=rnaSeqFiles$nf1Genotype[match(rseqfiles,rnaSeqFiles$rnaSeq_gencode)]
     return(samp.gen)
 }
-                                        #this code was originally run on 2015/12/23, but now incorporated into this file
+
+#this code was originally run on 2015/12/23, but now incorporated into this file
 plotTranscriptsOfGene<-function(gene='NF1',count.mat,metric='tpm',dolog=FALSE,ttype=c()){
     require(pheatmap)
 

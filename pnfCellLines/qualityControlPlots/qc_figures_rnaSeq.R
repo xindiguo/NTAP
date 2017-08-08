@@ -35,8 +35,7 @@ minTpm <- 0.1
 mat.tpm <- rnaKallistoMatrix()
 mat.count <- rnaKallistoMatrix(metric = "est_counts")
 
-annotes.grch38 <- samp.mappings[,c("Sample Name","RNA-Seq Data", "Sample Genotype")]
-annotes.grch38 <- annotes.grch38[complete.cases(annotes.grch38),]
+annotes.grch38 <- rnaSeqFiles[c("sampleIdentifier","rnaSeq","nf1Genotype")]
 colnames(annotes.grch38) <- c("sampleName","synapseId","genotype")
 
 # tpm
@@ -73,8 +72,7 @@ outputPCA(mat=mat.count,annotes=annotes.grch38,fileName = 'pcaOfCount.pdf')
 mat.tpm.gencode <- rnaGencodeKallistoMatrix()
 mat.count.gencode <- rnaGencodeKallistoMatrix(metric = "est_counts")
 
-annotes.gencode <- samp.mappings[,c("Sample Name","RNA-Seq Data (Gencode)", "Sample Genotype")]
-annotes.gencode <- annotes.gencode[complete.cases(annotes.gencode),]
+annotes.gencode <- rnaSeqFiles[c("sampleIdentifier","rnaSeq_gencode","nf1Genotype")]
 colnames(annotes.gencode) <- c("sampleName","synapseId","genotype")
 
 # tpm
